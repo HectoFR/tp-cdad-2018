@@ -25,7 +25,7 @@ module.exports = {
       text : sentence,
       e : 'oO',
       T : 'U '
-    })});
+    }), picture:s[0].picture});
   },
 
   add: async function (req, res) {
@@ -33,8 +33,29 @@ module.exports = {
   },
 
   create: async function(req, res) {
-    await Sentences.create({ sentence: req.param('sentence') });
-    return res.redirect('/say');
-  },
-};
+    const options =
+    {
+      adapter: require('skipper-better-s3')
+    , key: 'AKIAJOCSBD4KTGNIE2YQ'
+    , secret: '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'
+    , bucket: 'lp-cdad-2018'
+    , region: 'eu-west-3' 
+    , s3params:
+        { ACL: 'public-read'
+        }
+    }
 
+    req.file('file').upload(options, async (err, files) => {
+
+      if (err) {
+        console.log("erreur:" + err)
+      }else{
+        Sentences.create(
+          { sentence: req.param('sentence'), picture: files[0].extra.Location }
+        )
+      }
+    })
+
+    return res.redirect("/say");
+  }
+};
