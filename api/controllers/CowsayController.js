@@ -6,6 +6,8 @@
  */
 
 var cowsay = require('cowsay');
+
+
 var kue = require('kue')
 var queue = kue.createQueue({
   redis:{
@@ -14,17 +16,26 @@ var queue = kue.createQueue({
   }
 });
 
-queue.on('job enqueue', function(id, type){
-  console.log( 'Job %s got queued of type %s', id, type );
+var mailer = require('sails-service-mailer')('smtp', {
+  from: 'cdad@l3o.eu',
+  subject: 'cowsay',
+  provider: {
+    port: 587, // The port to connect to
+    host: 'smtp.mailgun.org', // The hostname to connect to
+    auth: { // Defines authentication data
+      user: 'postmaster@mailgun.l3o.eu', // Username
+      pass: 'fedbe91ae5e3529f94528dd311bea4c9-060550c6-d42c872f', // Password
+    }
+  }
+});
 
-}).on('job complete', function(id, result){
-  kue.Job.get(id, function(err, job){
-    if (err) return;
-    job.remove(function(err){
-      if (err) throw err;
-      console.log('removed completed job #%d', job.id);
-    });
-  });
+queue.process('email', function(job, done){
+  mailer.send({
+    to: job.data.title,
+    text: job.data.body
+  })
+  .then((res) => console.log(res))
+  .catch((res) => console.log(res));
 });
 
 module.exports = {
@@ -75,13 +86,13 @@ module.exports = {
         )
 
         queue.create('email', {
-          title: 'Thanks !'
-        , to: 'cyrilheckmann@gmail.com'
-        , body: 'Merci pour la sentence !'
-      }).save();
+          to: 'cyrilheckmann@gmail.com',
+          body: 'Merci pour la sentence "'+ req.param('sentence') +  '"'
+        }).save();
+
       }
     })
 
-    return res.return('/say');
+    return res.redirect('/say');
   }
 };
