@@ -6,6 +6,26 @@
  */
 
 var cowsay = require('cowsay');
+var kue = require('kue')
+var queue = kue.createQueue({
+  redis:{
+    port:6379,
+    host: 'redis',
+  }
+});
+
+queue.on('job enqueue', function(id, type){
+  console.log( 'Job %s got queued of type %s', id, type );
+
+}).on('job complete', function(id, result){
+  kue.Job.get(id, function(err, job){
+    if (err) return;
+    job.remove(function(err){
+      if (err) throw err;
+      console.log('removed completed job #%d', job.id);
+    });
+  });
+});
 
 module.exports = {
   /**
@@ -45,17 +65,23 @@ module.exports = {
         }
     }
 
-    req.file('file').upload(options, async (err, files) => {
+    await req.file('file').upload(options, (err, files) => {
 
       if (err) {
-        console.log("erreur:" + err)
+        console.log("erreur:", err)
       }else{
         Sentences.create(
           { sentence: req.param('sentence'), picture: files[0].extra.Location }
         )
+
+        queue.create('email', {
+          title: 'Thanks !'
+        , to: 'cyrilheckmann@gmail.com'
+        , body: 'Merci pour la sentence !'
+      }).save();
       }
     })
 
-    return res.redirect("/say");
+    return res.return('/say');
   }
 };
